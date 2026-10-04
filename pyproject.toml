@@ -2,7 +2,7 @@
 name = "ComfyUI-OpenRouter-API"
 description = "A bounded multimodal OpenRouter node for ComfyUI with text-only output."
 version = "1.0.0"
-license = "LICENSE"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
     "aiohttp>=3.9,<4",
