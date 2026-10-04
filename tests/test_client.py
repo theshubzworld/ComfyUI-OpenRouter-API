@@ -114,8 +114,28 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
                 result = await lookup_credits(NodeDeadline(1), "generation-key")
         self.assertTrue(result.startswith("Credits unavailable"))
 
-    async def test_reasoning_fallback_when_content_empty(self):
-        async def reasoning_response(_request):
+    async def test_thinking_tags_are_cropped_from_output(self):
+        async def thinking_response(_request):
+            return web.json_response({
+                "choices": [{
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {
+                        "role": "assistant",
+                        "content": "<think>\nThinking about Punjabi words...\n</think>\nsubject_definitions:\n<Picture 1> celestial palace",
+                    },
+                }],
+                "id": "gen-test-1",
+                "usage": {},
+            })
+
+        base = await self.start_server([("POST", "/chat/completions", thinking_response)])
+        with mock.patch.dict(os.environ, {"OPENROUTER_BASE_URL": base}):
+            result = await create_chat(NodeDeadline(2), {"model": "x"}, "secret")
+        self.assertEqual(result.text, "subject_definitions:\n<Picture 1> celestial palace")
+
+    async def test_empty_content_with_only_reasoning_raises_clear_error(self):
+        async def reasoning_only_response(_request):
             return web.json_response({
                 "choices": [{
                     "index": 0,
@@ -126,14 +146,15 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
                         "reasoning": "The detailed prompt thoughts and analysis",
                     },
                 }],
-                "id": "gen-test-1",
+                "id": "gen-test-2",
                 "usage": {},
             })
 
-        base = await self.start_server([("POST", "/chat/completions", reasoning_response)])
+        base = await self.start_server([("POST", "/chat/completions", reasoning_only_response)])
         with mock.patch.dict(os.environ, {"OPENROUTER_BASE_URL": base}):
-            result = await create_chat(NodeDeadline(2), {"model": "x"}, "secret")
-        self.assertEqual(result.text, "The detailed prompt thoughts and analysis")
+            with self.assertRaises(OpenRouterRequestError) as raised:
+                await create_chat(NodeDeadline(2), {"model": "x"}, "secret")
+        self.assertIn("reasoning thoughts", str(raised.exception))
 
     async def test_max_tokens_length_diagnostic(self):
         async def length_exhausted(_request):

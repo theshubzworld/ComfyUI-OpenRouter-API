@@ -165,23 +165,37 @@ def _error_detail(payload: Any) -> str:
     return ""
 
 
+def _strip_thinking(text: str) -> str:
+    """Crops model internal thinking/reasoning tags from final output."""
+    if not text:
+        return ""
+    # Strip <think>...</think>, <thought>...</thought>, and <reasoning>...</reasoning>
+    cleaned = re.sub(r"(?is)<\s*(?:think|thought|reasoning)\s*>.*?<\s*/\s*(?:think|thought|reasoning)\s*>", "", text)
+    # Strip unclosed thinking block at start (e.g. truncated thinking)
+    cleaned = re.sub(r"(?is)^<\s*(?:think|thought|reasoning)\s*>.*$", "", cleaned)
+    # Strip common standalone prefixes like "Thinking Process:\n" if followed by thinking
+    cleaned = re.sub(r"(?i)^thinking process:\s*", "", cleaned)
+    return cleaned.strip()
+
+
 def _extract_text(message: Any) -> str:
     if not isinstance(message, dict):
         return ""
     content = message.get("content")
+    raw_text = ""
     if isinstance(content, str) and content.strip():
-        return content
-    if isinstance(content, list):
+        raw_text = content
+    elif isinstance(content, list):
         chunks: list[str] = []
         for block in content:
             if isinstance(block, dict) and block.get("type") in {"text", "output_text"} and isinstance(block.get("text"), str):
                 chunks.append(block["text"])
         if chunks:
-            return "".join(chunks)
-    # Fall back to reasoning text if content is empty (e.g. reasoning model exhausted tokens)
-    reasoning = message.get("reasoning")
-    if isinstance(reasoning, str) and reasoning.strip():
-        return reasoning.strip()
+            raw_text = "".join(chunks)
+
+    if raw_text:
+        return _strip_thinking(raw_text)
+
     return ""
 
 
@@ -214,14 +228,20 @@ async def create_chat(deadline: NodeDeadline, payload: dict[str, Any], api_key: 
         text = _extract_text(message)
         if not text:
             finish_reason = first_choice.get("finish_reason")
+            reasoning = message.get("reasoning") if isinstance(message, dict) else None
             if finish_reason == "length":
                 raise OpenRouterRequestError(
-                    "Model reached max_tokens limit before producing output text. "
-                    "Increase max_tokens or set reasoning_effort to 'none' or 'low'."
+                    "Model reached max_tokens limit during internal thinking before generating the prompt. "
+                    "Increase max_tokens (e.g. 8192 or 16384) or set reasoning_effort to 'none' or 'low'."
                 )
             refusal = message.get("refusal") if isinstance(message, dict) else None
             if refusal:
                 raise OpenRouterRequestError(f"Model refused request: {refusal}")
+            if reasoning:
+                raise OpenRouterRequestError(
+                    "Model produced only internal reasoning thoughts without a final prompt response. "
+                    "Set reasoning_effort to 'none' or 'low', or choose another model."
+                )
             raise OpenRouterRequestError("OpenRouter returned no text completion; media-only output is not accepted")
         usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
         return ChatResult(text=text, response_id=data.get("id"), usage=usage)

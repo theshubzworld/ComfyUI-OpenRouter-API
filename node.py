@@ -89,7 +89,7 @@ class OpenRouterAPI:
                 ),
                 "max_tokens": (
                     "INT",
-                    {"default": 4096, "min": 1, "max": 1_000_000, "step": 1, "display": "number"},
+                    {"default": 8192, "min": 1, "max": 1_000_000, "step": 1, "display": "number"},
                 ),
                 "response_format": (["text", "json_object"], {"default": "text"}),
                 "zdr": ("BOOLEAN", {"default": False}),
