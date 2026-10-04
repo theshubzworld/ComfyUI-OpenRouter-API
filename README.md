@@ -1,4 +1,4 @@
-# ComfyUI OpenRouter Simple
+# ComfyUI OpenRouter API
 
 One OpenRouter node for multimodal context in and text only out. It keeps the useful inference controls, filters the model list to the exact combination of connected inputs, compresses media locally before submission, and treats timeout/Stop as real cancellation rather than a background request that keeps running.
 
@@ -30,7 +30,7 @@ Requires ComfyUI v0.32.0 or newer, Python 3.10+, and `ffmpeg`/`ffprobe` for vide
 Install from the Comfy Registry:
 
 ```bash
-comfy node install comfyui-openrouter-simple
+comfy node install ComfyUI-OpenRouter-API
 ```
 
 Or install directly from GitHub:
@@ -41,7 +41,7 @@ git clone https://github.com/theshubzworld/ComfyUI-OpenRouter-API.git
 python -m pip install -r ComfyUI-OpenRouter-API/requirements.txt
 ```
 
-Restart ComfyUI, then add **Shubz → OpenRouter → Shubz - OpenRouter Simple (Text Output)** (or search for **Shubz** or **OpenRouter**).
+Restart ComfyUI, then add **Shubz → OpenRouter → Shubz - OpenRouter API** (or search for **Shubz** or **OpenRouter API**).
 
 Enter a generation key in `api_key`, or convert that widget to an input and connect a STRING/API Key box. The explicit key takes precedence. Keys entered in a widget or connected box can appear in saved workflows, generated-media metadata and ComfyUI error reports. Clear them before sharing those files; the environment fallback keeps keys out of graph inputs.
 

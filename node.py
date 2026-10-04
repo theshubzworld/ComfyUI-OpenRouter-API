@@ -65,7 +65,7 @@ async def _prepare_media(
         raise
 
 
-class OpenRouterSimple:
+class OpenRouterAPI:
     """Bounded multimodal context in, text only out."""
 
     @classmethod
@@ -251,5 +251,12 @@ class OpenRouterSimple:
             raise RuntimeError(f"OpenRouter node timed out after {timeout_seconds} seconds") from exc
 
 
-NODE_CLASS_MAPPINGS = {"OpenRouterSimple": OpenRouterSimple}
-NODE_DISPLAY_NAME_MAPPINGS = {"OpenRouterSimple": "Shubz - OpenRouter Simple (Text Output)"}
+OpenRouterSimple = OpenRouterAPI
+NODE_CLASS_MAPPINGS = {
+    "OpenRouterAPI": OpenRouterAPI,
+    "OpenRouterSimple": OpenRouterAPI,
+}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "OpenRouterAPI": "Shubz - OpenRouter API",
+    "OpenRouterSimple": "Shubz - OpenRouter API",
+}

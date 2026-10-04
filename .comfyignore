@@ -4,3 +4,4 @@ tests/
 scripts/
 .env
 .env.*
+*.zip

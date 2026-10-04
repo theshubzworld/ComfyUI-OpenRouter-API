@@ -14,7 +14,7 @@ import {
     nextModelValue,
 } from "./model_filter.mjs";
 
-const NODE_ID = "OpenRouterSimple";
+const NODE_IDS = new Set(["OpenRouterAPI", "OpenRouterSimple"]);
 
 let catalogPromise = null;
 
@@ -114,9 +114,9 @@ function scheduleNodeUpdate(node) {
 }
 
 app.registerExtension({
-    name: "OpenRouterSimple.ModalityModelFilter",
+    name: "OpenRouterAPI.ModalityModelFilter",
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData.name !== NODE_ID) return;
+        if (!NODE_IDS.has(nodeData.name)) return;
 
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {

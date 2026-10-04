@@ -30,7 +30,8 @@ class NodeContractTests(unittest.TestCase):
         cls.node_module = sys.modules[f"{spec.name}.node"]
 
     def test_registration_and_text_only_outputs(self):
-        node = self.module.NODE_CLASS_MAPPINGS["OpenRouterSimple"]
+        self.assertIn("OpenRouterAPI", self.module.NODE_CLASS_MAPPINGS)
+        node = self.module.NODE_CLASS_MAPPINGS["OpenRouterAPI"]
         self.assertEqual(node.RETURN_TYPES, ("STRING", "STRING", "STRING"))
         self.assertEqual(node.RETURN_NAMES, ("text", "info", "credits"))
         self.assertEqual(self.module.WEB_DIRECTORY, "./web")

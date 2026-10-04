@@ -155,7 +155,7 @@ class ModelCatalog:
         candidates = [_cache_path(), _bundled_cache_path()]
         try:
             import folder_paths
-            candidates.append(Path(folder_paths.get_user_directory()) / "openrouter_simple" / "models.json")
+            candidates.append(Path(folder_paths.get_user_directory()) / "openrouter_api" / "models.json")
         except Exception:
             pass
         for path in candidates:

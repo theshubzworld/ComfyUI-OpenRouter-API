@@ -11,3 +11,5 @@ node_modules/
 /internal_docs/
 .env
 .env.*
+*.zip
+
