@@ -47,18 +47,27 @@ async function refreshModels(node, forceCatalog = false) {
     try {
         const catalog = await loadCatalog(forceCatalog);
         const freeOnly = Boolean(node.openRouterFreeOnly);
-        const compatible = compatibleModels(catalog.models, requiredModalities(node.inputs), freeOnly);
+        const bypassModalities = Boolean(node.openRouterBypassModalities);
+        const activeModalities = [...requiredModalities(node.inputs)].filter((m) => m !== "text");
+        const required = bypassModalities ? new Set(["text"]) : requiredModalities(node.inputs);
+        const compatible = compatibleModels(catalog.models, required, freeOnly);
         const values = compatible.length ? [CHOOSE_MODEL, ...compatible] : [NO_MODEL];
         widget.options = widget.options || {};
         widget.options.values = values;
         widget.value = compatible.length ? nextModelValue(widget.value, compatible) : NO_MODEL;
         const freeCount = catalog.free_count ?? catalog.models.filter((m) => m.is_free || String(m.id || "").includes(":free")).length;
-        const modeLabel = freeOnly
-            ? ` [FREE ONLY: ${compatible.length}]`
-            : ` (${compatible.length} available, ${freeCount} free)`;
+        
+        let filterDesc = "";
+        if (freeOnly) {
+            filterDesc = ` [FREE ONLY: ${compatible.length}]`;
+        } else if (!bypassModalities && activeModalities.length > 0) {
+            filterDesc = ` (${compatible.length} compatible with ${activeModalities.join("+")}, ${freeCount} free)`;
+        } else {
+            filterDesc = ` (${compatible.length} available, ${freeCount} free)`;
+        }
         widget.label = catalog.stale
-            ? `model${modeLabel} (cached)`
-            : `model${modeLabel}`;
+            ? `model${filterDesc} (cached)`
+            : `model${filterDesc}`;
         node.openRouterCatalogWarning = catalog.warning || null;
         node.openRouterCatalogRetried = false;
     } catch (error) {
@@ -124,6 +133,9 @@ app.registerExtension({
             if (arguments[0]?.openRouterFreeOnly !== undefined) {
                 this.openRouterFreeOnly = Boolean(arguments[0].openRouterFreeOnly);
             }
+            if (arguments[0]?.openRouterBypassModalities !== undefined) {
+                this.openRouterBypassModalities = Boolean(arguments[0].openRouterBypassModalities);
+            }
             const result = onConfigure?.apply(this, arguments);
             scheduleNodeUpdate(this);
             return result;
@@ -134,6 +146,9 @@ app.registerExtension({
             onSerialize?.apply(this, arguments);
             if (this.openRouterFreeOnly) {
                 o.openRouterFreeOnly = true;
+            }
+            if (this.openRouterBypassModalities) {
+                o.openRouterBypassModalities = true;
             }
         };
 
@@ -150,6 +165,15 @@ app.registerExtension({
         const getExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
         nodeType.prototype.getExtraMenuOptions = function (_, options) {
             const result = getExtraMenuOptions?.apply(this, arguments);
+            options.push({
+                content: this.openRouterBypassModalities
+                    ? "Input Modality Filter: BYPASSING (Click to filter by inputs)"
+                    : "Input Modality Filter: ACTIVE (Click to show all 466 models)",
+                callback: () => {
+                    this.openRouterBypassModalities = !this.openRouterBypassModalities;
+                    void refreshModels(this);
+                },
+            });
             options.push({
                 content: this.openRouterFreeOnly
                     ? "Show All Models (Free & Paid)"
