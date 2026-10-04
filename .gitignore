@@ -9,3 +9,5 @@ node_modules/
 /docs/
 
 /internal_docs/
+.env
+.env.*

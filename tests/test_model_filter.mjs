@@ -7,6 +7,7 @@ import {
     compatibleModels,
     desiredMediaInputNames,
     ensureApiKeyWidget,
+    isModelFree,
     migrateLegacyWidgetValues,
     nextModelValue,
     requiredModalities,
@@ -204,3 +205,29 @@ test("ensureApiKeyWidget preserves connected api_key input slot", () => {
     assert.equal(inputs.length, 1);
     assert.equal(widgets.length, 0);
 });
+
+test("isModelFree detects free models by id or property", () => {
+    assert.equal(isModelFree({ id: "meta-llama/llama-3.3-70b-instruct:free", is_free: true }), true);
+    assert.equal(isModelFree({ id: "google/gemini-2.0-flash-exp:free" }), true);
+    assert.equal(isModelFree({ id: "anthropic/claude-3.5-sonnet", is_free: false }), false);
+    assert.equal(isModelFree("meta-llama/llama-3.3-70b-instruct:free"), true);
+    assert.equal(isModelFree("openai/gpt-4o"), false);
+});
+
+test("compatibleModels sorts free models first and filters by freeOnly", () => {
+    const mixed = [
+        { id: "paid/z-model", input_modalities: ["text"], output_modalities: ["text"], is_free: false },
+        { id: "free/b-model:free", input_modalities: ["text"], output_modalities: ["text"], is_free: true },
+        { id: "paid/a-model", input_modalities: ["text"], output_modalities: ["text"], is_free: false },
+        { id: "free/a-model:free", input_modalities: ["text"], output_modalities: ["text"], is_free: true },
+    ];
+    const required = new Set(["text"]);
+    // Free models come first sorted alphabetically, followed by paid models sorted alphabetically
+    const all = compatibleModels(mixed, required, false);
+    assert.deepEqual(all, ["free/a-model:free", "free/b-model:free", "paid/a-model", "paid/z-model"]);
+
+    // With freeOnly = true, paid models are omitted
+    const freeOnly = compatibleModels(mixed, required, true);
+    assert.deepEqual(freeOnly, ["free/a-model:free", "free/b-model:free"]);
+});
+

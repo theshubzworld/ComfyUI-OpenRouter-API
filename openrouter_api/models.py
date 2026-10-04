@@ -29,6 +29,7 @@ class ModelInfo:
     output_modalities: tuple[str, ...]
     supported_parameters: tuple[str, ...]
     reasoning: bool
+    is_free: bool = False
 
     def accepts(self, required: set[str]) -> bool:
         return required.issubset(set(self.input_modalities)) and "text" in self.output_modalities
@@ -38,11 +39,11 @@ class ModelInfo:
 
 
 FALLBACK_SEED_MODELS: tuple[ModelInfo, ...] = (
-    ModelInfo("qwen/qwen3.8-27b:free", "Qwen: Qwen3.8 27B (free)", ("image", "text", "video"), ("text",), ("max_tokens", "temperature", "reasoning"), True),
-    ModelInfo("google/gemini-2.5-flash", "Google: Gemini 2.5 Flash", ("image", "text", "video", "audio"), ("text",), ("max_tokens", "temperature", "reasoning"), True),
-    ModelInfo("openai/gpt-4o-mini", "OpenAI: GPT-4o-mini", ("image", "text"), ("text",), ("max_tokens", "temperature"), False),
-    ModelInfo("anthropic/claude-3.5-sonnet", "Anthropic: Claude 3.5 Sonnet", ("image", "text"), ("text",), ("max_tokens", "temperature"), False),
-    ModelInfo("deepseek/deepseek-chat", "DeepSeek: DeepSeek V3", ("text",), ("text",), ("max_tokens", "temperature"), False),
+    ModelInfo("qwen/qwen3.8-27b:free", "Qwen: Qwen3.8 27B (free)", ("image", "text", "video"), ("text",), ("max_tokens", "temperature", "reasoning"), True, True),
+    ModelInfo("google/gemini-2.5-flash", "Google: Gemini 2.5 Flash", ("image", "text", "video", "audio"), ("text",), ("max_tokens", "temperature", "reasoning"), True, False),
+    ModelInfo("openai/gpt-4o-mini", "OpenAI: GPT-4o-mini", ("image", "text"), ("text",), ("max_tokens", "temperature"), False, False),
+    ModelInfo("anthropic/claude-3.5-sonnet", "Anthropic: Claude 3.5 Sonnet", ("image", "text"), ("text",), ("max_tokens", "temperature"), False, False),
+    ModelInfo("deepseek/deepseek-chat", "DeepSeek: DeepSeek V3", ("text",), ("text",), ("max_tokens", "temperature"), False, False),
 )
 
 
@@ -55,6 +56,9 @@ class ModelSnapshot:
 
     def by_id(self, model_id: str) -> ModelInfo | None:
         return next((model for model in self.models if model.id == model_id), None)
+
+    def free_models(self) -> tuple[ModelInfo, ...]:
+        return tuple(m for m in self.models if m.is_free or ":free" in m.id)
 
     def find_model(self, model_id: str) -> ModelInfo | None:
         clean = (model_id or "").strip()
@@ -84,6 +88,8 @@ class ModelSnapshot:
     def public(self) -> dict[str, Any]:
         return {
             "models": [asdict(model) for model in self.models],
+            "free_count": sum(1 for m in self.models if m.is_free or ":free" in m.id),
+            "total_count": len(self.models),
             "fetched_at": self.fetched_at,
             "stale": self.stale,
             "warning": self.warning,
@@ -100,6 +106,10 @@ def _cache_path() -> Path:
         return Path(folder_paths.get_user_directory()) / "openrouter_api" / "models.json"
     except (ImportError, AttributeError):
         return Path.home() / ".cache" / "comfyui-openrouter-simple" / "models.json"
+
+
+def _bundled_cache_path() -> Path:
+    return Path(__file__).resolve().parent / "models.json"
 
 
 def _modalities(value: Any) -> tuple[str, ...]:
@@ -119,6 +129,10 @@ def normalize_model(raw: dict[str, Any]) -> ModelInfo | None:
     supported = tuple(sorted({str(item) for item in parameters or [] if isinstance(item, str)}))
     reasoning_meta = raw.get("reasoning")
     reasoning = bool(reasoning_meta) or "reasoning" in supported
+    pricing = raw.get("pricing") if isinstance(raw.get("pricing"), dict) else {}
+    prompt_p = str(pricing.get("prompt", "1")).strip()
+    comp_p = str(pricing.get("completion", "1")).strip()
+    is_free = ":free" in model_id or (prompt_p in {"0", "0.0"} and comp_p in {"0", "0.0"})
     return ModelInfo(
         id=model_id,
         name=str(raw.get("name") or model_id),
@@ -126,6 +140,7 @@ def normalize_model(raw: dict[str, Any]) -> ModelInfo | None:
         output_modalities=outputs,
         supported_parameters=supported,
         reasoning=reasoning,
+        is_free=is_free,
     )
 
 
@@ -137,19 +152,39 @@ class ModelCatalog:
         self._load_disk()
 
     def _load_disk(self) -> None:
+        candidates = [_cache_path(), _bundled_cache_path()]
         try:
-            payload = json.loads(_cache_path().read_text(encoding="utf-8"))
-            models = tuple(ModelInfo(**item) for item in payload.get("models", []))
-            if models:
-                self._snapshot = ModelSnapshot(models=models, fetched_at=float(payload.get("fetched_at", 0)), stale=True)
-                return
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            import folder_paths
+            candidates.append(Path(folder_paths.get_user_directory()) / "openrouter_simple" / "models.json")
+        except Exception:
             pass
+        for path in candidates:
+            try:
+                if not path.is_file():
+                    continue
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                models = tuple(ModelInfo(**item) for item in payload.get("models", []))
+                if models:
+                    self._snapshot = ModelSnapshot(models=models, fetched_at=float(payload.get("fetched_at", 0)), stale=True)
+                    return
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                continue
         if self._snapshot is None:
             self._snapshot = ModelSnapshot(models=FALLBACK_SEED_MODELS, fetched_at=0, stale=True, warning="Initial seed catalog")
 
-    def cached_ids(self) -> list[str]:
-        return [model.id for model in self._snapshot.models] if self._snapshot else []
+    def cached_ids(self, free_first: bool = True) -> list[str]:
+        if not self._snapshot:
+            return []
+        if not free_first:
+            return [model.id for model in self._snapshot.models]
+        free = [model.id for model in self._snapshot.models if model.is_free or ":free" in model.id]
+        paid = [model.id for model in self._snapshot.models if not (model.is_free or ":free" in model.id)]
+        return [*free, *paid]
+
+    def cached_free_ids(self) -> list[str]:
+        if not self._snapshot:
+            return []
+        return [model.id for model in self._snapshot.models if model.is_free or ":free" in model.id]
 
     def _save_disk(self, snapshot: ModelSnapshot) -> None:
         path = _cache_path()

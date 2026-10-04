@@ -59,15 +59,31 @@ export function desiredMediaInputNames(inputs = []) {
     return desired;
 }
 
-export function compatibleModels(models, required) {
+export function isModelFree(model) {
+    if (!model) return false;
+    if (typeof model === "string") return model.includes(":free");
+    return Boolean(model.is_free) || String(model.id || "").includes(":free");
+}
+
+export function compatibleModels(models, required, freeOnly = false) {
     return models
         .filter((model) => {
             const inputs = new Set(model.input_modalities || []);
             const outputs = new Set(model.output_modalities || []);
-            return outputs.has("text") && [...required].every((item) => inputs.has(item));
+            const matches = outputs.has("text") && [...required].every((item) => inputs.has(item));
+            if (!matches) return false;
+            if (freeOnly && !isModelFree(model)) return false;
+            return true;
         })
-        .map((model) => model.id)
-        .sort((left, right) => left.localeCompare(right));
+        .sort((left, right) => {
+            const leftFree = isModelFree(left) ? 0 : 1;
+            const rightFree = isModelFree(right) ? 0 : 1;
+            if (leftFree !== rightFree) {
+                return leftFree - rightFree;
+            }
+            return (left.id || "").localeCompare(right.id || "");
+        })
+        .map((model) => model.id);
 }
 
 export function nextModelValue(current, compatible) {

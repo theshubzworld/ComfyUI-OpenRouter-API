@@ -2,3 +2,5 @@
 docs/
 tests/
 scripts/
+.env
+.env.*

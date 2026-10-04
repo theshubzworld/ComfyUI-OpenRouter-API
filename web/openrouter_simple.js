@@ -18,9 +18,13 @@ const NODE_ID = "OpenRouterSimple";
 
 let catalogPromise = null;
 
-async function loadCatalog() {
+async function loadCatalog(force = false) {
+    if (force) {
+        catalogPromise = null;
+    }
     if (!catalogPromise) {
-        catalogPromise = api.fetchApi("/openrouter_api/models", { cache: "no-store" })
+        const url = force ? "/openrouter_api/models?refresh=true" : "/openrouter_api/models";
+        catalogPromise = api.fetchApi(url, { cache: "no-store" })
             .then(async (response) => {
                 const payload = await response.json();
                 if (!response.ok || !Array.isArray(payload.models)) {
@@ -36,20 +40,25 @@ async function loadCatalog() {
     return catalogPromise;
 }
 
-async function refreshModels(node) {
+async function refreshModels(node, forceCatalog = false) {
     const widget = node.widgets?.find((candidate) => candidate.name === "model");
     if (!widget) return;
 
     try {
-        const catalog = await loadCatalog();
-        const compatible = compatibleModels(catalog.models, requiredModalities(node.inputs));
+        const catalog = await loadCatalog(forceCatalog);
+        const freeOnly = Boolean(node.openRouterFreeOnly);
+        const compatible = compatibleModels(catalog.models, requiredModalities(node.inputs), freeOnly);
         const values = compatible.length ? [CHOOSE_MODEL, ...compatible] : [NO_MODEL];
         widget.options = widget.options || {};
         widget.options.values = values;
         widget.value = compatible.length ? nextModelValue(widget.value, compatible) : NO_MODEL;
+        const freeCount = catalog.free_count ?? catalog.models.filter((m) => m.is_free || String(m.id || "").includes(":free")).length;
+        const modeLabel = freeOnly
+            ? ` [FREE ONLY: ${compatible.length}]`
+            : ` (${compatible.length} available, ${freeCount} free)`;
         widget.label = catalog.stale
-            ? `model (${compatible.length} compatible, cached metadata)`
-            : `model (${compatible.length} compatible)`;
+            ? `model${modeLabel} (cached)`
+            : `model${modeLabel}`;
         node.openRouterCatalogWarning = catalog.warning || null;
         node.openRouterCatalogRetried = false;
     } catch (error) {
@@ -112,9 +121,20 @@ app.registerExtension({
         nodeType.prototype.onConfigure = function () {
             ensureApiKeyWidget(this);
             migrateLegacyWidgetValues(arguments[0]);
+            if (arguments[0]?.openRouterFreeOnly !== undefined) {
+                this.openRouterFreeOnly = Boolean(arguments[0].openRouterFreeOnly);
+            }
             const result = onConfigure?.apply(this, arguments);
             scheduleNodeUpdate(this);
             return result;
+        };
+
+        const onSerialize = nodeType.prototype.onSerialize;
+        nodeType.prototype.onSerialize = function (o) {
+            onSerialize?.apply(this, arguments);
+            if (this.openRouterFreeOnly) {
+                o.openRouterFreeOnly = true;
+            }
         };
 
         const onConnectionsChange = nodeType.prototype.onConnectionsChange;
@@ -130,6 +150,21 @@ app.registerExtension({
         const getExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
         nodeType.prototype.getExtraMenuOptions = function (_, options) {
             const result = getExtraMenuOptions?.apply(this, arguments);
+            options.push({
+                content: this.openRouterFreeOnly
+                    ? "Show All Models (Free & Paid)"
+                    : "Filter: Show Free Models Only (:free)",
+                callback: () => {
+                    this.openRouterFreeOnly = !this.openRouterFreeOnly;
+                    void refreshModels(this);
+                },
+            });
+            options.push({
+                content: "Fetch & Refresh Live Models from OpenRouter",
+                callback: async () => {
+                    await refreshModels(this, true);
+                },
+            });
             options.push({
                 content: "Set / Fill OpenRouter API Key",
                 callback: () => {

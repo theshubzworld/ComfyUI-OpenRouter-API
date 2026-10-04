@@ -28,6 +28,38 @@ class ChatResult:
     usage: dict[str, Any]
 
 
+def load_dotenv() -> None:
+    """Loads environment variables from local .env files if not already set."""
+    if os.environ.get("OPENROUTER_API_KEY") or os.environ.get("LLM_KEY"):
+        return
+    from pathlib import Path
+    candidates = [
+        Path(__file__).resolve().parents[1] / ".env",
+        Path.cwd() / ".env",
+    ]
+    try:
+        import folder_paths
+        candidates.append(Path(folder_paths.base_path) / ".env")
+        candidates.append(Path(folder_paths.get_user_directory()) / ".env")
+    except Exception:
+        pass
+    for path in candidates:
+        if path.is_file():
+            try:
+                for line in path.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+                if os.environ.get("OPENROUTER_API_KEY") or os.environ.get("LLM_KEY"):
+                    break
+            except Exception:
+                pass
+
+
 def resolve_generation_key(api_key: str = "") -> str:
     """Explicit node key wins; blank values fall back without changing the environment."""
     for value in (api_key, os.environ.get("OPENROUTER_API_KEY"), os.environ.get("LLM_KEY")):
