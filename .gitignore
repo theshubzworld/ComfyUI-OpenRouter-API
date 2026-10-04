@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.coverage
+.pytest_cache/
+.ruff_cache/
+.venv/
+node_modules/
+/docs/
+
+/internal_docs/

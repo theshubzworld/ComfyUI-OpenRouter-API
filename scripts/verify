@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="${1:-fast}"
+if [[ "$MODE" != "fast" && "$MODE" != "full" ]]; then
+    echo "usage: ./scripts/verify [fast|full]" >&2
+    exit 2
+fi
+
+PYTHON_CANDIDATES=()
+if [[ -n "${PYTHON_BIN:-}" ]]; then
+    PYTHON_CANDIDATES+=("$PYTHON_BIN")
+fi
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+    PYTHON_CANDIDATES+=("$VIRTUAL_ENV/bin/python")
+fi
+PYTHON_CANDIDATES+=("${HOME}/.venvs/torch312/bin/python" "python3")
+
+PYTHON=""
+for candidate in "${PYTHON_CANDIDATES[@]}"; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
+        PYTHON="$candidate"
+        break
+    fi
+done
+if [[ -z "$PYTHON" ]]; then
+    echo "Python 3.10+ was not found; set PYTHON_BIN to ComfyUI's Python" >&2
+    exit 2
+fi
+
+"$PYTHON" -m py_compile __init__.py node.py openrouter_simple/*.py tests/*.py
+node --check web/openrouter_simple.js
+node --check web/model_filter.mjs
+node --test tests/test_model_filter.mjs
+
+if [[ "$MODE" == "fast" ]]; then
+    "$PYTHON" -m unittest \
+        tests.test_models \
+        tests.test_payload \
+        tests.test_cancellation \
+        tests.test_client \
+        tests.test_http \
+        tests.test_node_contract
+else
+    "$PYTHON" -m unittest discover -s tests -p 'test_*.py'
+fi
+
+git diff --check
