@@ -20,7 +20,7 @@ let catalogPromise = null;
 
 async function loadCatalog() {
     if (!catalogPromise) {
-        catalogPromise = api.fetchApi("/openrouter_simple/models", { cache: "no-store" })
+        catalogPromise = api.fetchApi("/openrouter_api/models", { cache: "no-store" })
             .then(async (response) => {
                 const payload = await response.json();
                 if (!response.ok || !Array.isArray(payload.models)) {
@@ -152,7 +152,7 @@ app.registerExtension({
                     if (!presetWidget || !promptWidget) return;
                     const selectedPreset = presetWidget.value || "Ref2VA";
                     try {
-                        const res = await api.fetchApi("/openrouter_simple/presets");
+                        const res = await api.fetchApi("/openrouter_api/presets");
                         const data = await res.json();
                         const text = data?.prompts?.[selectedPreset] || "";
                         promptWidget.value = text;

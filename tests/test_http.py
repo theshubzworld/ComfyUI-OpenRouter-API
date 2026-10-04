@@ -1,6 +1,6 @@
 import unittest
 
-from openrouter_simple.http import ResponseTooLarge, read_bounded
+from openrouter_api.http import ResponseTooLarge, read_bounded
 
 
 class ChunkedContent:

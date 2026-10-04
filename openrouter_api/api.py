@@ -10,8 +10,8 @@ def register_routes() -> None:
     except ImportError:
         return
 
-    @PromptServer.instance.routes.get("/openrouter_simple/models")
-    async def openrouter_simple_models(_request):
+    @PromptServer.instance.routes.get("/openrouter_api/models")
+    async def openrouter_api_models(_request):
         try:
             snapshot = await CATALOG.get()
             return web.json_response(snapshot.public())
@@ -21,8 +21,8 @@ def register_routes() -> None:
                 status=503,
             )
 
-    @PromptServer.instance.routes.get("/openrouter_simple/presets")
-    async def openrouter_simple_presets(_request):
+    @PromptServer.instance.routes.get("/openrouter_api/presets")
+    async def openrouter_api_presets(_request):
         from .minimax_prompts import _PRESET_MAP, DEFAULT_SYSTEM_PRESET, SYSTEM_PRESETS
         return web.json_response({
             "presets": list(SYSTEM_PRESETS),

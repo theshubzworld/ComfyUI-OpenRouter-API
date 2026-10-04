@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from openrouter_simple.cancellation import NodeDeadline, NodeTimeoutError, run_process
+from openrouter_api.cancellation import NodeDeadline, NodeTimeoutError, run_process
 
 
 def process_exists(pid: int) -> bool:
@@ -39,7 +39,7 @@ class CancellationTests(unittest.IsolatedAsyncioTestCase):
             def interrupted():
                 return time.monotonic() - started > 0.15
 
-            with mock.patch("openrouter_simple.cancellation.processing_interrupted", side_effect=interrupted):
+            with mock.patch("openrouter_api.cancellation.processing_interrupted", side_effect=interrupted):
                 with self.assertRaises(asyncio.CancelledError):
                     await run_process(NodeDeadline(5, poll_interval=0.02), sys.executable, "-c", code)
             self.assertLess(time.monotonic() - started, 1.0)

@@ -5,16 +5,16 @@ import contextlib
 import json
 from typing import Any
 
-from .openrouter_simple.cancellation import NodeDeadline, NodeTimeoutError
-from .openrouter_simple.client import create_chat, lookup_credits, resolve_generation_key
-from .openrouter_simple.media import PreparedMedia, prepare_audio, prepare_image, prepare_video
-from .openrouter_simple.minimax_prompts import (
+from .openrouter_api.cancellation import NodeDeadline, NodeTimeoutError
+from .openrouter_api.client import create_chat, lookup_credits, resolve_generation_key
+from .openrouter_api.media import PreparedMedia, prepare_audio, prepare_image, prepare_video
+from .openrouter_api.minimax_prompts import (
     DEFAULT_SYSTEM_PRESET,
     SYSTEM_PRESETS,
     build_effective_system_prompt,
 )
-from .openrouter_simple.models import CATALOG, ModelInfo
-from .openrouter_simple.payload import build_payload
+from .openrouter_api.models import CATALOG, ModelInfo
+from .openrouter_api.payload import build_payload
 
 CHOOSE_MODEL = "— choose a compatible OpenRouter model —"
 NO_MODEL = "— no compatible text-output model —"

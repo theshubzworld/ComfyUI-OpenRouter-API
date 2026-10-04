@@ -6,8 +6,8 @@ from pathlib import Path
 
 import torch
 
-from openrouter_simple.cancellation import NodeDeadline, run_process
-from openrouter_simple.media import (
+from openrouter_api.cancellation import NodeDeadline, run_process
+from openrouter_api.media import (
     AUDIO_LIMIT,
     IMAGE_LIMIT,
     VIDEO_LIMIT,

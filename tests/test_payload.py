@@ -1,8 +1,8 @@
 import unittest
 
-from openrouter_simple.media import PreparedMedia
-from openrouter_simple.models import ModelInfo
-from openrouter_simple.payload import build_payload
+from openrouter_api.media import PreparedMedia
+from openrouter_api.models import ModelInfo
+from openrouter_api.payload import build_payload
 
 
 def model(*parameters: str, reasoning: bool = True) -> ModelInfo:

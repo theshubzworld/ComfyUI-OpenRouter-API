@@ -8,10 +8,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from openrouter_simple.cancellation import NodeDeadline
-from openrouter_simple.client import ChatResult
-from openrouter_simple.media import PreparedMedia
-from openrouter_simple.models import ModelInfo, ModelSnapshot
+from openrouter_api.cancellation import NodeDeadline
+from openrouter_api.client import ChatResult
+from openrouter_api.media import PreparedMedia
+from openrouter_api.models import ModelInfo, ModelSnapshot
 
 
 class NodeContractTests(unittest.TestCase):
@@ -19,7 +19,7 @@ class NodeContractTests(unittest.TestCase):
     def setUpClass(cls):
         root = Path(__file__).resolve().parents[1]
         spec = importlib.util.spec_from_file_location(
-            "comfyui_openrouter_simple",
+            "comfyui_openrouter_api",
             root / "__init__.py",
             submodule_search_locations=[str(root)],
         )

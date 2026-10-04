@@ -28,8 +28,8 @@ if [[ -z "$PYTHON" ]]; then
     exit 2
 fi
 
-"$PYTHON" -m py_compile __init__.py node.py openrouter_simple/*.py tests/*.py
-node --check web/openrouter_simple.js
+"$PYTHON" -m py_compile __init__.py node.py openrouter_api/*.py tests/*.py
+node --check web/openrouter_api.js
 node --check web/model_filter.mjs
 node --test tests/test_model_filter.mjs
 

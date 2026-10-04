@@ -7,8 +7,8 @@ from unittest import mock
 
 from aiohttp import web
 
-from openrouter_simple.cancellation import NodeDeadline, NodeTimeoutError
-from openrouter_simple.client import OpenRouterRequestError, create_chat, lookup_credits
+from openrouter_api.cancellation import NodeDeadline, NodeTimeoutError
+from openrouter_api.client import OpenRouterRequestError, create_chat, lookup_credits
 
 
 class ClientTests(unittest.IsolatedAsyncioTestCase):

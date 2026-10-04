@@ -97,7 +97,7 @@ def _cache_path() -> Path:
     try:
         import folder_paths
 
-        return Path(folder_paths.get_user_directory()) / "openrouter_simple" / "models.json"
+        return Path(folder_paths.get_user_directory()) / "openrouter_api" / "models.json"
     except (ImportError, AttributeError):
         return Path.home() / ".cache" / "comfyui-openrouter-simple" / "models.json"
 

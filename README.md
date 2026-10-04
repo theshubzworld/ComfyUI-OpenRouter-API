@@ -121,10 +121,10 @@ No verification command makes a paid OpenRouter request. Local fake endpoints ex
 ## Architecture and operational boundary
 
 - `node.py` owns the nine-slot ComfyUI input/output contract and request lifecycle.
-- `openrouter_simple/models.py` owns live metadata normalization and the stale cache.
-- `openrouter_simple/media.py` owns exact pre-base64 caps and encoder selection.
-- `openrouter_simple/cancellation.py` owns the shared deadline, Stop polling, and subprocess cleanup.
-- `openrouter_simple/client.py` owns bounded OpenRouter HTTP and credits lookup.
+- `openrouter_api/models.py` owns live metadata normalization and the stale cache.
+- `openrouter_api/media.py` owns exact pre-base64 caps and encoder selection.
+- `openrouter_api/cancellation.py` owns the shared deadline, Stop polling, and subprocess cleanup.
+- `openrouter_api/client.py` owns bounded OpenRouter HTTP and credits lookup.
 - `web/` owns display-only live filtering; it is never authoritative for execution.
 
 This is a standalone public custom node distributed through [GitHub](https://github.com/theshubzworld/ComfyUI-OpenRouter-API) and the Comfy Registry. Installing it does not deploy it to a RunPod template. There is no project brain page yet.

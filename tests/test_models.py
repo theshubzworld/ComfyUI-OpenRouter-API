@@ -1,6 +1,6 @@
 import unittest
 
-from openrouter_simple.models import normalize_model
+from openrouter_api.models import normalize_model
 
 
 class ModelTests(unittest.TestCase):
@@ -42,7 +42,7 @@ class ModelTests(unittest.TestCase):
         self.assertFalse(model.accepts({"text", "image", "audio"}))
 
     def test_find_model_supports_alias_and_case_insensitive_lookup(self):
-        from openrouter_simple.models import ModelInfo, ModelSnapshot
+        from openrouter_api.models import ModelInfo, ModelSnapshot
 
         m1 = ModelInfo("qwen/qwen3.8-27b:free", "Qwen 27B Free", ("text", "image"), ("text",), (), True)
         m2 = ModelInfo("google/gemini-2.5-flash", "Gemini 2.5 Flash", ("text", "image"), ("text",), (), True)
