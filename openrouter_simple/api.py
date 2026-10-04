@@ -20,3 +20,12 @@ def register_routes() -> None:
                 {"models": [], "fetched_at": 0, "stale": False, "warning": str(exc)},
                 status=503,
             )
+
+    @PromptServer.instance.routes.get("/openrouter_simple/presets")
+    async def openrouter_simple_presets(_request):
+        from .minimax_prompts import _PRESET_MAP, DEFAULT_SYSTEM_PRESET, SYSTEM_PRESETS
+        return web.json_response({
+            "presets": list(SYSTEM_PRESETS),
+            "default": DEFAULT_SYSTEM_PRESET,
+            "prompts": _PRESET_MAP,
+        })

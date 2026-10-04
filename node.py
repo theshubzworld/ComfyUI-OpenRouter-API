@@ -8,6 +8,11 @@ from typing import Any
 from .openrouter_simple.cancellation import NodeDeadline, NodeTimeoutError
 from .openrouter_simple.client import create_chat, lookup_credits, resolve_generation_key
 from .openrouter_simple.media import PreparedMedia, prepare_audio, prepare_image, prepare_video
+from .openrouter_simple.minimax_prompts import (
+    DEFAULT_SYSTEM_PRESET,
+    SYSTEM_PRESETS,
+    build_effective_system_prompt,
+)
 from .openrouter_simple.models import CATALOG, ModelInfo
 from .openrouter_simple.payload import build_payload
 
@@ -89,9 +94,17 @@ class OpenRouterSimple:
                 "response_format": (["text", "json_object"], {"default": "text"}),
                 "zdr": ("BOOLEAN", {"default": False}),
                 "regenerate": ("BOOLEAN", {"default": True}),
+                "system_preset": (
+                    list(SYSTEM_PRESETS),
+                    {"default": DEFAULT_SYSTEM_PRESET},
+                ),
                 "system_prompt": (
                     "STRING",
-                    {"multiline": True, "default": "You are a helpful assistant."},
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "Additional custom system prompt (leave blank to use selected preset default)",
+                    },
                 ),
                 "user_prompt": (
                     "STRING",
@@ -134,7 +147,6 @@ class OpenRouterSimple:
 
     async def run(
         self,
-        system_prompt: str,
         user_prompt: str,
         model: str,
         reasoning_effort: str,
@@ -144,6 +156,8 @@ class OpenRouterSimple:
         response_format: str,
         zdr: bool,
         regenerate: bool,
+        system_preset: str = DEFAULT_SYSTEM_PRESET,
+        system_prompt: str = "",
         image: Any | None = None,
         video: Any | None = None,
         audio: dict[str, Any] | None = None,
@@ -198,9 +212,10 @@ class OpenRouterSimple:
 
             media = await _prepare_media(deadline, media_inputs=media_inputs)
             deadline.checkpoint()
+            effective_system = build_effective_system_prompt(system_preset, system_prompt)
             payload, parameter_info = build_payload(
                 model=selected,
-                system_prompt=system_prompt,
+                system_prompt=effective_system,
                 user_prompt=user_prompt,
                 media=[item for _name, item in media],
                 reasoning_effort=reasoning_effort,
@@ -218,6 +233,7 @@ class OpenRouterSimple:
 
             info = {
                 "model": model,
+                "system_preset": system_preset,
                 "response_id": result.response_id,
                 "usage": result.usage,
                 "required_modalities": sorted(required_modalities),

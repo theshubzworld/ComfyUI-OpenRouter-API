@@ -144,6 +144,24 @@ app.registerExtension({
                     }
                 },
             });
+            options.push({
+                content: "Load Selected Preset into System Prompt Textbox",
+                callback: async () => {
+                    const presetWidget = this.widgets?.find((w) => w.name === "system_preset");
+                    const promptWidget = this.widgets?.find((w) => w.name === "system_prompt");
+                    if (!presetWidget || !promptWidget) return;
+                    const selectedPreset = presetWidget.value || "Ref2VA";
+                    try {
+                        const res = await api.fetchApi("/openrouter_simple/presets");
+                        const data = await res.json();
+                        const text = data?.prompts?.[selectedPreset] || "";
+                        promptWidget.value = text;
+                        this.setDirtyCanvas(true, true);
+                    } catch (err) {
+                        console.error("Failed to load preset prompt:", err);
+                    }
+                },
+            });
             return result;
         };
     },

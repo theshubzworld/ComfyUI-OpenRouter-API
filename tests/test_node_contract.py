@@ -41,6 +41,7 @@ class NodeContractTests(unittest.TestCase):
         self.assertEqual(
             set(inputs["required"]),
             {
+                "system_preset",
                 "system_prompt",
                 "user_prompt",
                 "model",
@@ -54,6 +55,13 @@ class NodeContractTests(unittest.TestCase):
             },
         )
         self.assertEqual(inputs["required"]["regenerate"], ("BOOLEAN", {"default": True}))
+        self.assertEqual(inputs["required"]["system_preset"][1]["default"], "Ref2VA")
+        self.assertIn("Ref2VA", inputs["required"]["system_preset"][0])
+        self.assertIn("I2VA", inputs["required"]["system_preset"][0])
+        self.assertIn("RefAud2VA", inputs["required"]["system_preset"][0])
+        self.assertIn("T2VA", inputs["required"]["system_preset"][0])
+        self.assertIn("FL2VA", inputs["required"]["system_preset"][0])
+        self.assertIn("None", inputs["required"]["system_preset"][0])
         self.assertEqual(
             list(inputs["optional"]),
             [
@@ -75,7 +83,7 @@ class NodeContractTests(unittest.TestCase):
         self.assertEqual(list(inputs["required"]), [
             "model", "reasoning_effort", "timeout_seconds", "temperature",
             "max_tokens", "response_format", "zdr", "regenerate",
-            "system_prompt", "user_prompt",
+            "system_preset", "system_prompt", "user_prompt",
         ])
         self.assertEqual(inputs["optional"]["api_key"][0], "STRING")
         self.assertEqual(inputs["optional"]["api_key"][1]["default"], "")
@@ -229,7 +237,8 @@ class NodeContractTests(unittest.TestCase):
         self.assertEqual((text, credits), ("ok", "credits"))
         self.assertIsNotNone(captured_payload)
         self.assertNotIn("regenerate", captured_payload)
-        content = captured_payload["messages"][0]["content"]
+        user_message = [m for m in captured_payload["messages"] if m["role"] == "user"][0]
+        content = user_message["content"]
         self.assertEqual(
             [part["type"] for part in content],
             ["text", "image_url", "image_url", "video_url", "input_audio"],
@@ -237,6 +246,86 @@ class NodeContractTests(unittest.TestCase):
         info = json.loads(info_json)
         self.assertEqual(info["required_modalities"], ["audio", "image", "text", "video"])
         self.assertEqual(list(info["media"]), ["image", "image_3", "video_2", "audio_3"])
+
+    def test_system_presets_injection(self):
+        selected = ModelInfo("vendor/text", "Text", ("text",), ("text",), ("max_tokens",), False)
+        snapshot = ModelSnapshot(models=(selected,), fetched_at=1.0)
+        captured_payload = None
+
+        async def create_chat_mock(_deadline, payload, _api_key):
+            nonlocal captured_payload
+            captured_payload = payload
+            return ChatResult(text="ok", response_id="gen-test", usage={})
+
+        async def credits_mock(_deadline, _api_key):
+            return "credits"
+
+        node = self.node_module.OpenRouterSimple()
+        base_kwargs = dict(
+            user_prompt="Hello",
+            model="vendor/text",
+            reasoning_effort="auto",
+            timeout_seconds=5,
+            temperature=1.0,
+            max_tokens=64,
+            response_format="text",
+            zdr=False,
+            regenerate=True,
+            api_key="test-key",
+        )
+
+        with (
+            mock.patch.object(self.node_module.CATALOG, "get", mock.AsyncMock(return_value=snapshot)),
+            mock.patch.object(self.node_module, "create_chat", side_effect=create_chat_mock),
+            mock.patch.object(self.node_module, "lookup_credits", side_effect=credits_mock),
+        ):
+            # 1. Default preset Ref2VA with empty system_prompt
+            asyncio.run(node.run(**base_kwargs, system_preset="Ref2VA", system_prompt=""))
+            sys_msg = [m for m in captured_payload["messages"] if m["role"] == "system"]
+            self.assertEqual(len(sys_msg), 1)
+            self.assertIn("Ref2VA (Full Reference Mode)", sys_msg[0]["content"])
+            self.assertIn("subject_definitions", sys_msg[0]["content"])
+            self.assertIn("retention_analysis", sys_msg[0]["content"])
+
+            # 2. Ref2VA with custom user instructions appended
+            asyncio.run(node.run(**base_kwargs, system_preset="Ref2VA", system_prompt="Keep it punchy."))
+            sys_msg = [m for m in captured_payload["messages"] if m["role"] == "system"]
+            self.assertIn("Ref2VA (Full Reference Mode)", sys_msg[0]["content"])
+            self.assertIn("[Additional Instructions]\nKeep it punchy.", sys_msg[0]["content"])
+
+            # 3. I2VA preset
+            asyncio.run(node.run(**base_kwargs, system_preset="I2VA", system_prompt=""))
+            sys_msg = [m for m in captured_payload["messages"] if m["role"] == "system"]
+            self.assertIn("Task: I2VA", sys_msg[0]["content"])
+            self.assertIn("<Picture 1> (from [Shot 1]) is fully referenced", sys_msg[0]["content"])
+
+            # 4. RefAud2VA preset
+            asyncio.run(node.run(**base_kwargs, system_preset="RefAud2VA", system_prompt=""))
+            sys_msg = [m for m in captured_payload["messages"] if m["role"] == "system"]
+            self.assertIn("Task: RefAud2VA", sys_msg[0]["content"])
+            self.assertIn("<Audio 1> is the synchronized audio track", sys_msg[0]["content"])
+
+            # 5. T2VA preset
+            asyncio.run(node.run(**base_kwargs, system_preset="T2VA", system_prompt=""))
+            sys_msg = [m for m in captured_payload["messages"] if m["role"] == "system"]
+            self.assertIn("Task: T2VA", sys_msg[0]["content"])
+
+            # 6. FL2VA preset
+            asyncio.run(node.run(**base_kwargs, system_preset="FL2VA", system_prompt=""))
+            sys_msg = [m for m in captured_payload["messages"] if m["role"] == "system"]
+            self.assertIn("Task: FL2VA", sys_msg[0]["content"])
+            self.assertIn("Picture 1 (from Shot 1) aligns with the 0.00-second mark", sys_msg[0]["content"])
+
+            # 7. None preset with empty system_prompt -> no system message
+            asyncio.run(node.run(**base_kwargs, system_preset="None", system_prompt=""))
+            sys_msg = [m for m in captured_payload["messages"] if m["role"] == "system"]
+            self.assertEqual(len(sys_msg), 0)
+
+            # 8. None preset with custom prompt -> only custom prompt
+            asyncio.run(node.run(**base_kwargs, system_preset="None", system_prompt="Custom solo prompt"))
+            sys_msg = [m for m in captured_payload["messages"] if m["role"] == "system"]
+            self.assertEqual(len(sys_msg), 1)
+            self.assertEqual(sys_msg[0]["content"], "Custom solo prompt")
 
 
 if __name__ == "__main__":
